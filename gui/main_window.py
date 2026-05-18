@@ -1,6 +1,4 @@
-"""
-Main application window for the Passive Network Scanner.
-"""
+"""Main application window."""
 import os
 import sys
 import time
@@ -109,12 +107,7 @@ class ProtocolBarWidget(QWidget):
 
 
 class CoxcombWidget(QWidget):
-    """Nightingale-style rose / polar-area diagram for protocol events.
-
-    Each wedge spans an equal angular slice; its *area* is proportional to the
-    event count (so radius = sqrt(count)). This is how Florence Nightingale
-    drew her 1858 'Diagram of the Causes of Mortality.'
-    """
+    """Polar-area (Nightingale rose) diagram. Wedge area is proportional to count."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -155,16 +148,15 @@ class CoxcombWidget(QWidget):
         max_radius = max(40.0, max_radius)
 
         angle_each = 360.0 / n
-        start_angle = 90.0  # 12 o'clock, going clockwise
+        start_angle = 90.0  # 12 o'clock, clockwise
 
-        # Faint concentric guide circles.
         p.setPen(QPen(QColor(INK_FAINT), 1, Qt.DotLine))
         p.setBrush(Qt.NoBrush)
         for frac in (1 / 3, 2 / 3, 1.0):
             r = max_radius * frac
             p.drawEllipse(QPointF(cx, cy), r, r)
 
-        # Wedges. Area-proportional ⇒ radius = sqrt(count / max) * max_r.
+        # radius = sqrt(count / max) * max_r  ⇒  wedge area ∝ count
         for i, (proto, count) in enumerate(items):
             radius = math.sqrt(count / max_count) * max_radius
             colour = QColor(PROTOCOL_COLORS.get(proto, INK_FAINT))
@@ -180,7 +172,6 @@ class CoxcombWidget(QWidget):
             p.setPen(QPen(QColor(INK), 1))
             p.drawPath(path)
 
-        # Italic rim labels.
         p.setFont(QFont("Times New Roman", 10, QFont.Bold))
         p.setPen(QColor(INK))
         for i, (proto, count) in enumerate(items):
@@ -200,12 +191,11 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1200, 750)
         self.resize(1400, 850)
 
-        # Core components
         self.db = Database(db_path)
         self.device_manager = DeviceManager(self.db)
         self.sniffer = Sniffer(self.device_manager)
 
-        # Signal bridge for thread safety
+        # Bridge sniffer-thread callbacks onto the GUI thread via Qt signals.
         self._signals = SignalBridge()
         self._signals.device_updated.connect(self._on_device_updated)
         self._signals.packet_received.connect(self._on_packet_log)
@@ -218,18 +208,13 @@ class MainWindow(QMainWindow):
             )
         )
 
-        # Apply theme
         self.setStyleSheet(DARK_THEME)
-
-        # Build UI
         self._build_ui()
 
-        # Refresh timer
         self._refresh_timer = QTimer(self)
         self._refresh_timer.timeout.connect(self._refresh_stats)
         self._refresh_timer.start(2000)
 
-        # Status bar
         self._status_label = QLabel("Ready")
         self.statusBar().addWidget(self._status_label, 1)
         self._pps_label = QLabel("")
@@ -242,18 +227,14 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(12, 8, 12, 8)
         main_layout.setSpacing(8)
 
-        # ── Top bar ──
         top_bar = QHBoxLayout()
         top_bar.setSpacing(12)
 
-        # Title block
         title = QLabel("PassiveEye")
         title.setObjectName("titleLabel")
         top_bar.addWidget(title)
-
         top_bar.addStretch()
 
-        # Interface selector
         iface_label = QLabel("Interface:")
         iface_label.setStyleSheet("font-weight: bold;")
         top_bar.addWidget(iface_label)
@@ -262,7 +243,6 @@ class MainWindow(QMainWindow):
         self._populate_interfaces()
         top_bar.addWidget(self._iface_combo)
 
-        # Start / Stop / Export buttons
         self._start_btn = QPushButton("Start Capture")
         self._start_btn.setObjectName("startButton")
         self._start_btn.clicked.connect(self._start_capture)
@@ -280,7 +260,6 @@ class MainWindow(QMainWindow):
 
         main_layout.addLayout(top_bar)
 
-        # ── Stats bar ──
         stats_bar = QHBoxLayout()
         stats_bar.setSpacing(10)
 
@@ -296,11 +275,9 @@ class MainWindow(QMainWindow):
 
         main_layout.addLayout(stats_bar)
 
-        # ── Protocol distribution bar ──
         self._proto_bar = ProtocolBarWidget()
         main_layout.addWidget(self._proto_bar)
 
-        # ── Tab widget ──
         tabs = QTabWidget()
         main_layout.addWidget(tabs, 1)
 
@@ -315,7 +292,6 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 4, 0, 0)
 
-        # Search / filter bar
         filter_bar = QHBoxLayout()
         self._search_input = None
         try:
@@ -331,7 +307,6 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Vertical)
         layout.addWidget(splitter, 1)
 
-        # Device table
         self._device_table = QTableWidget()
         self._device_table.setColumnCount(9)
         self._device_table.setHorizontalHeaderLabels([
@@ -355,7 +330,6 @@ class MainWindow(QMainWindow):
         self._device_table.currentCellChanged.connect(self._on_device_selected)
         splitter.addWidget(self._device_table)
 
-        # Detail panel
         self._detail_panel = QTextEdit()
         self._detail_panel.setReadOnly(True)
         self._detail_panel.setMaximumHeight(200)
@@ -413,14 +387,12 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(8, 8, 8, 8)
 
-        # Rose / coxcomb diagram — the centerpiece, in the Nightingale style.
         rose_group = QGroupBox("Rose Diagram of the Causes of Network Chatter")
         rose_layout = QVBoxLayout(rose_group)
         self._coxcomb = CoxcombWidget()
         rose_layout.addWidget(self._coxcomb)
         layout.addWidget(rose_group)
 
-        # Protocol breakdown
         proto_group = QGroupBox("Protocol Event Distribution")
         proto_layout = QVBoxLayout(proto_group)
         self._proto_detail_table = QTableWidget()
@@ -432,7 +404,6 @@ class MainWindow(QMainWindow):
         proto_layout.addWidget(self._proto_detail_table)
         layout.addWidget(proto_group)
 
-        # Device type breakdown
         dtype_group = QGroupBox("Device Type Distribution")
         dtype_layout = QVBoxLayout(dtype_group)
         self._dtype_table = QTableWidget()
@@ -444,7 +415,6 @@ class MainWindow(QMainWindow):
         dtype_layout.addWidget(self._dtype_table)
         layout.addWidget(dtype_group)
 
-        # Vendor breakdown
         vendor_group = QGroupBox("Vendor Distribution")
         vendor_layout = QVBoxLayout(vendor_group)
         self._vendor_table = QTableWidget()
@@ -475,8 +445,6 @@ class MainWindow(QMainWindow):
         self._stop_btn.setEnabled(True)
         self._iface_combo.setEnabled(False)
         self._status_label.setText(f"Capturing on {iface or 'all interfaces'}...")
-
-        # Check for errors after a short delay
         QTimer.singleShot(1000, self._check_sniffer_error)
 
     def _check_sniffer_error(self):

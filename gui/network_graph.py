@@ -1,6 +1,4 @@
-"""
-Network graph widget: draws discovered devices and connections as a force-directed graph.
-"""
+"""Force-directed network graph of discovered devices."""
 import math
 import random
 import time
@@ -170,7 +168,6 @@ class NetworkGraphWidget(QWidget):
 
     def paintEvent(self, event):
         p = QPainter(self)
-        # Parchment ground with a sepia hairline border.
         p.fillRect(self.rect(), QColor(PARCHMENT))
         p.setPen(QPen(QColor(RULE), 1))
         p.drawRect(0, 0, self.width() - 1, self.height() - 1)
@@ -185,7 +182,7 @@ class NetworkGraphWidget(QWidget):
 
         p.setRenderHint(QPainter.Antialiasing, True)
 
-        # Sepia ink edges, width proportional to weight.
+        # Edges: line width is proportional to traffic weight.
         for node in self.nodes.values():
             sx1, sy1 = self._world_to_screen(node.x, node.y)
             for target_mac, weight in node.connections.items():
@@ -197,7 +194,6 @@ class NetworkGraphWidget(QWidget):
                     p.setPen(pen)
                     p.drawLine(QPointF(sx1, sy1), QPointF(sx2, sy2))
 
-        # Nodes as ink-bordered parchment discs.
         for node in self.nodes.values():
             sx, sy = self._world_to_screen(node.x, node.y)
             r = node.radius * self._zoom

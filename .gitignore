@@ -39,6 +39,11 @@ passive_scan_export.json
 *.pcap
 *.pcapng
 
+# Source-archive build artefacts (use GitHub Releases instead)
+*.tar.gz
+*.tgz
+*.zip
+
 # ── Logs / temp ──────────────────────────────────────────────────────
 *.log
 *.tmp
