@@ -1,7 +1,7 @@
-# PassiveEye — Passive Network Scanner
+# PassiveEye Passive Network Scanner
 
 A desktop application that discovers and maps every device on your network by
-**listening only**. No active probing, no ARP scans, no port scans — just
+**listening only**. No active probing, no ARP scans, no port scans just
 silent observation of the broadcast, multicast, and overheard unicast traffic
 that networked devices emit constantly, even when they appear idle.
 
@@ -32,13 +32,13 @@ runs each packet through every parser. The nine protocols understood:
 | # | Protocol | Layer / Port | What it reveals |
 |---|---|---|---|
 | 1 | **ARP**     | L2 (0x0806)      | MAC ↔ IPv4 mappings; who is on the segment. |
-| 2 | **DHCP**    | UDP 67 / 68      | Hostname, vendor-class ID, requested/assigned IP, parameter-request-list OS fingerprint (Windows / Linux / Android / macOS / iOS). |
+| 2 | **DHCP**    | UDP 67 / 68      | Hostname, vendor class ID, requested/assigned IP, parameter-request-list OS fingerprint (Windows / Linux / Android / macOS / iOS). |
 | 3 | **mDNS**    | UDP 5353         | `.local` hostnames, Bonjour/Avahi service discovery (AirPlay, printers, Chromecast, SMB, HTTP…), TXT-record metadata (model, OS version). |
 | 4 | **SSDP**    | UDP 1900         | UPnP devices, `SERVER:` header OS guessing, `LOCATION` URLs, search targets. |
 | 5 | **NetBIOS** | UDP 137          | Windows machine names via half-ASCII decoding (covers both Scapy's parser and a raw-bytes fallback). |
-| 6 | **LLMNR**   | UDP 5355         | Windows link-local name resolution queries — strong Windows indicator. |
+| 6 | **LLMNR**   | UDP 5355         | Windows link-local name resolution queries strong Windows indicator. |
 | 7 | **DNS**     | UDP 53           | Query/response logging, top-queried domains, per-device DNS analytics. |
-| 8 | **LLDP**    | L2 (0x88CC)      | Network-device TLVs — chassis ID, port ID, system name, system description, capabilities, management address, IEEE 802.1 VLAN ID. |
+| 8 | **LLDP**    | L2 (0x88CC)      | Network-device TLVs chassis ID, port ID, system name, system description, capabilities, management address, IEEE 802.1 VLAN ID. |
 | 9 | **IPv6-ND** | ICMPv6           | Router advertisements (prefix, RDNSS, router lifetime), router solicitations, neighbor solicitations / advertisements. |
 
 The scanner never sends a packet. Everything above is gathered from traffic
@@ -52,29 +52,29 @@ From a few minutes of passive listening on a typical home/office network:
 - Most devices' hostnames (DHCP / mDNS / NetBIOS).
 - Many devices' operating systems (DHCP fingerprint, SSDP `SERVER:`, mDNS TXT
   `osxvers`, LLDP system description).
-- Service inventory per device — what AirPlay/Bonjour services they advertise,
+- Service inventory per device what AirPlay/Bonjour services they advertise,
   what UPnP they expose, what printers exist.
 - Which devices are routers / access points (LLDP capabilities, IPv6 RAs,
   vendor heuristics).
-- The aggregate DNS curiosity of the network — top queried domains.
+- The aggregate DNS curiosity of the network top queried domains.
 
 ---
 
 ## 3. Skills / Things Demonstrated
 
 - **Raw packet capture** via Scapy with a single combined BPF filter.
-- **Threaded packet processing** — capture runs on a background thread, the
+- **Threaded packet processing** capture runs on a background thread, the
   GUI uses Qt signals to receive updates without blocking.
 - **Protocol parsing** in pure Python, including manual binary parsing for
-  LLDP TLVs and NetBIOS half-ASCII names.
+  LLDP TLVs and NetBIOS half ASCII names.
 - **OS fingerprinting** by three independent heuristics (DHCP vendor class,
-  DHCP parameter-request-list ordering, SSDP server string).
-- **Persistent storage** — SQLite in WAL mode with thread-local connections,
+  DHCP parameter request list ordering, SSDP server string).
+- **Persistent storage** SQLite in WAL mode with thread-local connections,
   indexed for time/protocol/DNS lookups.
-- **GUI engineering** — Qt stylesheet theme, custom-painted widgets
+- **GUI engineering** Qt stylesheet theme, custom-painted widgets
   (`ProtocolBarWidget`, `CoxcombWidget`, `NetworkGraphWidget`), a
   force-directed graph layout, search/filter, JSON export.
-- **Data visualization** — a rose / coxcomb diagram with area-proportional
+- **Data visualization** a rose / coxcomb diagram with area-proportional
   wedges (`radius = √(count / max)`), exactly the construction Nightingale
   used in 1858.
 
@@ -84,7 +84,7 @@ From a few minutes of passive listening on a typical home/office network:
 
 ### Requirements
 
-- Python 3.8 or newer (3.10–3.13 work cleanly; 3.14 also works if your distro
+- Python 3.8 or newer (3.10 or 3.13 work cleanly; 3.14 also works if your distro
   ships Scapy and PyQt5 wheels for it).
 - Linux, macOS, or Windows.
 - On Linux/macOS: nothing extra — raw sockets are built in, just run as root.
