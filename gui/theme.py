@@ -1,22 +1,16 @@
-"""
-Florence-Nightingale-inspired theme: parchment paper, sepia ink, faded period
-palette borrowed from her 1858 "Diagram of the Causes of Mortality in the Army
-in the East." Times New Roman everywhere, upright (no italics).
-"""
+"""Nightingale-inspired theme: parchment ground, sepia ink, Times New Roman."""
 
-# ── Palette ────────────────────────────────────────────────────────────
 PARCHMENT      = "#f4ead0"
 PARCHMENT_DARK = "#ebdfb8"
 INK            = "#3a2818"
 INK_FAINT      = "#7a6244"
 RULE           = "#8a6f4a"
-ACCENT_BLUE    = "#8da7b3"
-ACCENT_CORAL   = "#c87864"
-ACCENT_OLIVE   = "#6e6a4c"
+ACCENT_BLUE    = "#8da7b3"   # "Disease"      (per Nightingale 1858)
+ACCENT_CORAL   = "#c87864"   # "Wounds"
+ACCENT_OLIVE   = "#6e6a4c"   # "Other Causes"
 SELECT_BG      = "#c8b894"
 SELECT_FG      = "#2a1c0c"
 
-# Single font everywhere.
 FONT_FAMILY = '"Times New Roman", "Times", serif'
 
 CLASSIC_THEME = f"""

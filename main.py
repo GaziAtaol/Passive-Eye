@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""
-PassiveEye - Passive Network Scanner
-Discover devices on your network by listening to traffic.
-No active probing, no noise. Just observation.
-
-Usage:
-    sudo python main.py                       # GUI mode
-    sudo python main.py --interface eth0      # Specify interface
-    sudo python main.py --db custom.db        # Custom SQLite path
-"""
+"""PassiveEye entry point. See README.md for usage."""
 import sys
 import os
 import argparse
@@ -24,8 +15,7 @@ def check_privileges():
         return True
 
     if os.name == "nt":
-        # On Windows, scapy uses Npcap. Admin privileges are required to put
-        # adapters into promiscuous mode.
+        # Windows: scapy uses Npcap; admin is needed for promiscuous mode.
         try:
             import ctypes
             if ctypes.windll.shell32.IsUserAnAdmin() == 0:
@@ -59,14 +49,13 @@ def main():
     if not check_privileges():
         sys.exit(1)
 
-    # Import Qt after args parsing to avoid slow startup for --help
+    # Import Qt lazily so --help stays fast.
     from PyQt5.QtWidgets import QApplication
     from PyQt5.QtCore import Qt
     from PyQt5.QtGui import QFont
 
     from gui.main_window import MainWindow
 
-    # High DPI support
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
@@ -74,14 +63,12 @@ def main():
     app.setApplicationName("PassiveEye")
     app.setOrganizationName("CyberSecClub")
 
-    # Period-appropriate serif default.
     font = QFont("Times New Roman", 10)
     font.setStyleHint(QFont.Serif)
     app.setFont(font)
 
     window = MainWindow(db_path=args.db)
 
-    # Auto-select interface if specified
     if args.interface:
         combo = window._iface_combo
         for i in range(combo.count()):
