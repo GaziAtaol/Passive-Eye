@@ -141,18 +141,18 @@ python main.py -h                  # show help
 
 1. Pick an interface from the **Interface** dropdown (or leave "All Interfaces").
 2. Click **Start Capture**.
-3. Wait. Discovery traffic is bursty — give it 30 seconds to a few minutes.
+3. Wait. Discovery traffic is bursty give it 30 seconds to a few minutes.
    ARP/mDNS/SSDP arrive fastest; DHCP only on lease renewal.
 4. Tabs:
-   - **Devices** — live table of every device heard. Click a row for a full
+   - **Devices** live table of every device heard. Click a row for a full
      parchment detail card showing MAC, IPs, vendor, OS guess, services,
      metadata.
-   - **Network Map** — interactive force-directed graph. Drag nodes, scroll
+   - **Network Map** interactive force-directed graph. Drag nodes, scroll
      to zoom, hover for a margin-note tooltip. Routers are coral, the rest
      parchment.
-   - **Event Log** — chronological feed of every parsed event.
-   - **DNS Analytics** — top queried domains across the network.
-   - **Statistics** — the rose / coxcomb diagram + protocol, device-type,
+   - **Event Log** chronological feed of every parsed event.
+   - **DNS Analytics** top queried domains across the network.
+   - **Statistics** the rose / coxcomb diagram + protocol, device-type,
      and vendor distribution tables.
 5. **Stop** halts capture cleanly. **Export…** writes the whole database to
    a JSON file.
@@ -193,7 +193,7 @@ already on the wire.
 
 Two ordinary caveats:
 
-1. Raw-socket capture requires root / Administrator on every OS.
+1. Raw socket capture requires root / Administrator on every OS.
 2. Only run it on networks you own or have permission to monitor.
 
 ---
@@ -205,11 +205,11 @@ Two ordinary caveats:
 | `Permission denied` / `Operation not permitted` | Use `sudo` (Linux/macOS) or run the shell as Administrator (Windows). |
 | Windows: `No libpcap provider available` | Install Npcap, reboot. |
 | `ModuleNotFoundError: scapy` / `PyQt5` | `pip install -r requirements.txt` (and make sure your venv is activated). |
-| GUI starts but device table stays empty | Wrong interface, or a wired link with little broadcast traffic — try Wi-Fi or "All Interfaces". |
+| GUI starts but device table stays empty | Wrong interface, or a wired link with little broadcast traffic try Wi-Fi or "All Interfaces". |
 | Capture error popup right after **Start** | The selected interface is wrong; pick "All Interfaces" instead. |
 
 ---
 
 ## License
 
-Educational use — CyberSec Club 2026.
+Educational use CyberSec Club 2026.
