@@ -6,7 +6,7 @@ silent observation of the broadcast, multicast, and overheard unicast traffic
 that networked devices emit constantly, even when they appear idle.
 
 Visually it borrows the look of Florence Nightingale's 1858 *Diagram of the
-Causes of Mortality in the Army in the East* — parchment paper, sepia ink,
+Causes of Mortality in the Army in the East* parchment paper, sepia ink,
 Times New Roman, and a rose / coxcomb diagram for the protocol breakdown.
 
 ---
