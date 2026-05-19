@@ -94,11 +94,16 @@ From a few minutes of passive listening on a typical home/office network:
 
 ### Install
 
+Clone the repository and install the two dependencies:
+
 ```bash
-tar xzf PassiveEye.tar.gz
-cd passive-scanner
+git clone https://github.com/GaziAtaol/Passive-Eye.git
+cd Passive-Eye
 pip install -r requirements.txt
 ```
+
+Alternatively, download the ZIP from GitHub (click **Code → Download ZIP**),
+extract it, `cd` into the folder, and run the same `pip install` line above.
 
 `requirements.txt` pulls in Scapy and PyQt5.
 
@@ -123,7 +128,7 @@ sudo ./.venv/bin/python main.py
 Right-click PowerShell or `cmd` → **Run as administrator**, then:
 
 ```powershell
-cd C:\path\to\passive-scanner
+cd C:\path\to\Passive-Eye
 python main.py
 ```
 
@@ -165,7 +170,7 @@ the same picture.
 ## 7. Project layout
 
 ```
-passive-scanner/
+Passive-Eye/
 ├── main.py                  # Entry point + privilege check
 ├── requirements.txt
 ├── README.md
