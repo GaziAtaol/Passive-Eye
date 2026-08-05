@@ -955,6 +955,67 @@ OUI_TABLE = {
 }
 
 
+import os as _os
+
+
+def load_oui_file(path: str) -> int:
+    """Extend :data:`OUI_TABLE` from an external OUI database file.
+
+    Supports the common ``manuf`` / IEEE formats where each line begins with an
+    OUI prefix (``001122``, ``00:11:22`` or ``00-11-22``) followed by a
+    whitespace/comma-separated vendor name. Comment lines (``#``) are ignored.
+    Returns the number of prefixes loaded. Built-in entries stay as fallback and
+    are never overwritten, so this only *adds* coverage.
+    """
+    loaded = 0
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.replace(",", "\t").split("\t")
+                if len(parts) < 2:
+                    parts = line.split(None, 1)
+                if len(parts) < 2:
+                    continue
+                raw = parts[0].strip().upper().replace("-", ":")
+                vendor = parts[1].strip()
+                if "/" in raw:  # skip CIDR-style MA-M/MA-S entries
+                    continue
+                hexonly = raw.replace(":", "")
+                if len(hexonly) < 6:
+                    continue
+                prefix = f"{hexonly[0:2]}:{hexonly[2:4]}:{hexonly[4:6]}"
+                if prefix not in OUI_TABLE and vendor:
+                    OUI_TABLE[prefix] = vendor
+                    loaded += 1
+    except FileNotFoundError:
+        return 0
+    except Exception:
+        return loaded
+    return loaded
+
+
+def _autoload_oui():
+    """Try a few conventional locations for a fuller OUI database."""
+    here = _os.path.dirname(__file__)
+    candidates = [
+        _os.environ.get("GHOSTWIRE_OUI", ""),
+        _os.path.join(here, "oui.txt"),
+        _os.path.join(here, "manuf"),
+        "/usr/share/wireshark/manuf",
+        "/opt/homebrew/share/wireshark/manuf",
+    ]
+    for path in candidates:
+        if path and _os.path.isfile(path):
+            if load_oui_file(path):
+                break
+
+
+_autoload_oui()
+
+
 def lookup_vendor(mac: str) -> str:
     """Lookup vendor from MAC address using OUI prefix."""
     if not mac:

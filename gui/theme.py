@@ -1,138 +1,214 @@
-"""Nightingale-inspired theme: parchment ground, sepia ink, Times New Roman."""
+"""GhostWire hacker/terminal theme: near-black ground, neon-green ink, monospace.
 
-PARCHMENT      = "#f4ead0"
-PARCHMENT_DARK = "#ebdfb8"
-INK            = "#3a2818"
-INK_FAINT      = "#7a6244"
-RULE           = "#8a6f4a"
-ACCENT_BLUE    = "#8da7b3"   # "Disease"      (per Nightingale 1858)
-ACCENT_CORAL   = "#c87864"   # "Wounds"
-ACCENT_OLIVE   = "#6e6a4c"   # "Other Causes"
-SELECT_BG      = "#c8b894"
-SELECT_FG      = "#2a1c0c"
+The public constant *names* are kept identical to the original parchment theme
+(``INK``, ``PARCHMENT``, ``RULE`` …) so every custom-painted widget in the GUI
+re-skins automatically without touching its paint code.  Only the *values*
+changed — sepia became matrix-green.
+"""
 
-FONT_FAMILY = '"Times New Roman", "Times", serif'
+# ---------------------------------------------------------------------------
+# Core palette (new hacker names)
+# ---------------------------------------------------------------------------
+BG        = "#0a0e14"   # near-black window ground
+BG_ALT    = "#0d1117"   # slightly lighter (tables / alt rows)
+PANEL     = "#111722"   # raised panels / headers / cards
+NEON      = "#00ff41"   # matrix green — primary text & accent
+NEON_DIM  = "#12b23a"   # dimmer green
+CYAN      = "#00e5ff"   # secondary accent (links, highlights)
+AMBER     = "#ffb000"   # warnings
+RED       = "#ff3b3b"   # alerts / critical
+DIM       = "#213026"   # hairline rules / borders
+GREEN_FAINT = "#4a7a5a"  # muted labels
 
-CLASSIC_THEME = f"""
+# ---------------------------------------------------------------------------
+# Legacy names -> remapped to hacker palette (imported across the GUI)
+# ---------------------------------------------------------------------------
+PARCHMENT      = BG
+PARCHMENT_DARK = PANEL
+INK            = NEON
+INK_FAINT      = GREEN_FAINT
+RULE           = DIM
+ACCENT_BLUE    = CYAN
+ACCENT_CORAL   = RED
+ACCENT_OLIVE   = AMBER
+SELECT_BG      = "#003b1a"
+SELECT_FG      = NEON
+
+FONT_FAMILY = '"JetBrains Mono","Cascadia Code","Menlo","Consolas","Courier New",monospace'
+
+_BASE_QSS = f"""
 QMainWindow, QWidget {{
-    background-color: {PARCHMENT};
-    color: {INK};
+    background-color: {BG};
+    color: {NEON};
     font-family: {FONT_FAMILY};
     font-size: 13px;
 }}
 
 /* Tab Widget */
 QTabWidget::pane {{
-    border: 1px solid {RULE};
-    background-color: {PARCHMENT};
+    border: 1px solid {DIM};
+    background-color: {BG};
+    top: -1px;
 }}
 
 QTabBar::tab {{
-    background-color: {PARCHMENT_DARK};
-    color: {INK};
-    padding: 5px 18px;
+    background-color: {PANEL};
+    color: {GREEN_FAINT};
+    padding: 6px 18px;
     margin-right: 2px;
-    border: 1px solid {RULE};
+    border: 1px solid {DIM};
     border-bottom: none;
+    font-family: {FONT_FAMILY};
+    letter-spacing: 1px;
 }}
 
 QTabBar::tab:selected {{
-    background-color: {PARCHMENT};
-    border-bottom: 1px solid {PARCHMENT};
+    background-color: {BG};
+    color: {NEON};
+    border-bottom: 2px solid {NEON};
     font-weight: bold;
 }}
 
 QTabBar::tab:hover:!selected {{
-    background-color: #e8dab0;
+    background-color: #16202c;
+    color: {CYAN};
 }}
 
 /* Tables */
 QTableWidget, QTableView {{
-    background-color: {PARCHMENT};
-    alternate-background-color: {PARCHMENT_DARK};
-    color: {INK};
-    gridline-color: {RULE};
-    border: 1px solid {RULE};
+    background-color: {BG_ALT};
+    alternate-background-color: {PANEL};
+    color: {NEON};
+    gridline-color: {DIM};
+    border: 1px solid {DIM};
     selection-background-color: {SELECT_BG};
-    selection-color: {SELECT_FG};
+    selection-color: {NEON};
 }}
 
 QTableWidget::item, QTableView::item {{
     padding: 3px 6px;
 }}
 
+QTableWidget::item:hover, QTableView::item:hover {{
+    background-color: #16202c;
+}}
+
 QHeaderView::section {{
-    background-color: {PARCHMENT_DARK};
-    color: {INK};
-    padding: 4px 8px;
+    background-color: {PANEL};
+    color: {CYAN};
+    padding: 5px 8px;
     border: none;
-    border-right: 1px solid {RULE};
-    border-bottom: 1px solid {RULE};
+    border-right: 1px solid {DIM};
+    border-bottom: 1px solid {NEON_DIM};
     font-weight: bold;
+    letter-spacing: 1px;
 }}
 
 QHeaderView::section:hover {{
-    background-color: #e8dab0;
+    background-color: #16202c;
+    color: {NEON};
 }}
 
 /* Buttons */
 QPushButton {{
-    background-color: {PARCHMENT_DARK};
-    color: {INK};
-    border: 1px solid {RULE};
-    padding: 4px 16px;
+    background-color: {PANEL};
+    color: {NEON};
+    border: 1px solid {NEON_DIM};
+    padding: 5px 16px;
     min-height: 18px;
     font-family: {FONT_FAMILY};
+    letter-spacing: 1px;
 }}
 
 QPushButton:hover {{
-    background-color: #e8dab0;
+    background-color: #04240f;
+    color: {NEON};
+    border: 1px solid {NEON};
 }}
 
 QPushButton:pressed {{
     background-color: {SELECT_BG};
-    color: {SELECT_FG};
+    color: {CYAN};
+    border: 1px solid {CYAN};
 }}
 
 QPushButton:disabled {{
-    color: {INK_FAINT};
-    background-color: {PARCHMENT};
+    color: #2f4a38;
+    background-color: {BG_ALT};
+    border: 1px solid {DIM};
+}}
+
+QPushButton#startButton {{
+    color: {NEON};
+    border: 1px solid {NEON};
+}}
+QPushButton#startButton:hover {{
+    background-color: #04240f;
+}}
+QPushButton#stopButton {{
+    color: {RED};
+    border: 1px solid #6e2323;
+}}
+QPushButton#stopButton:hover {{
+    background-color: #2a0d0d;
+    border: 1px solid {RED};
 }}
 
 /* ComboBox */
 QComboBox {{
-    background-color: {PARCHMENT};
-    color: {INK};
-    border: 1px solid {RULE};
-    padding: 2px 6px;
+    background-color: {BG_ALT};
+    color: {NEON};
+    border: 1px solid {NEON_DIM};
+    padding: 3px 6px;
     min-width: 140px;
 }}
 
+QComboBox:hover {{
+    border: 1px solid {NEON};
+}}
+
 QComboBox::drop-down {{
-    border-left: 1px solid {RULE};
-    background-color: {PARCHMENT_DARK};
+    border-left: 1px solid {NEON_DIM};
+    background-color: {PANEL};
     width: 18px;
 }}
 
 QComboBox QAbstractItemView {{
-    background-color: {PARCHMENT};
-    color: {INK};
-    border: 1px solid {RULE};
+    background-color: {BG_ALT};
+    color: {NEON};
+    border: 1px solid {NEON_DIM};
     selection-background-color: {SELECT_BG};
-    selection-color: {SELECT_FG};
+    selection-color: {CYAN};
+}}
+
+/* CheckBox (Deep mode toggle) */
+QCheckBox {{
+    color: {NEON};
+    spacing: 6px;
+}}
+QCheckBox::indicator {{
+    width: 14px; height: 14px;
+    border: 1px solid {NEON_DIM};
+    background: {BG_ALT};
+}}
+QCheckBox::indicator:checked {{
+    background: {NEON};
+    border: 1px solid {NEON};
 }}
 
 /* Scroll bars */
 QScrollBar:vertical {{
-    background-color: {PARCHMENT_DARK};
-    width: 14px;
-    border-left: 1px solid {RULE};
+    background-color: {BG_ALT};
+    width: 12px;
+    border-left: 1px solid {DIM};
 }}
 
 QScrollBar::handle:vertical {{
-    background-color: {INK_FAINT};
-    border: 1px solid {RULE};
+    background-color: {NEON_DIM};
     min-height: 24px;
+}}
+QScrollBar::handle:vertical:hover {{
+    background-color: {NEON};
 }}
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
@@ -140,15 +216,17 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
 }}
 
 QScrollBar:horizontal {{
-    background-color: {PARCHMENT_DARK};
-    height: 14px;
-    border-top: 1px solid {RULE};
+    background-color: {BG_ALT};
+    height: 12px;
+    border-top: 1px solid {DIM};
 }}
 
 QScrollBar::handle:horizontal {{
-    background-color: {INK_FAINT};
-    border: 1px solid {RULE};
+    background-color: {NEON_DIM};
     min-width: 24px;
+}}
+QScrollBar::handle:horizontal:hover {{
+    background-color: {NEON};
 }}
 
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
@@ -157,83 +235,98 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
 
 /* Labels */
 QLabel {{
-    color: {INK};
+    color: {NEON};
     background: transparent;
 }}
 
 QLabel#titleLabel {{
     font-family: {FONT_FAMILY};
-    font-size: 30px;
+    font-size: 26px;
     font-weight: bold;
-    color: {INK};
-    letter-spacing: 1px;
+    color: {NEON};
+    letter-spacing: 3px;
 }}
 
 QLabel#subtitleLabel {{
     font-family: {FONT_FAMILY};
-    font-size: 13px;
-    color: {INK_FAINT};
+    font-size: 12px;
+    color: {GREEN_FAINT};
+    letter-spacing: 2px;
 }}
 
 QLabel#statValue {{
     font-family: {FONT_FAMILY};
     font-size: 22px;
     font-weight: bold;
-    color: {INK};
+    color: {NEON};
 }}
 
 QLabel#statLabel {{
-    font-size: 11px;
-    color: {INK_FAINT};
+    font-size: 10px;
+    color: {GREEN_FAINT};
+    letter-spacing: 1px;
 }}
 
 /* GroupBox */
 QGroupBox {{
-    background-color: {PARCHMENT};
-    border: 1px solid {RULE};
+    background-color: {BG_ALT};
+    border: 1px solid {DIM};
     margin-top: 14px;
     padding: 10px;
     padding-top: 22px;
     font-weight: bold;
+    color: {CYAN};
 }}
 
 QGroupBox::title {{
     subcontrol-origin: margin;
     left: 12px;
     padding: 0 6px;
-    background-color: {PARCHMENT};
-    color: {INK};
+    background-color: {BG};
+    color: {CYAN};
+    letter-spacing: 1px;
 }}
 
 /* TextEdit / PlainTextEdit */
 QTextEdit, QPlainTextEdit {{
-    background-color: {PARCHMENT};
-    color: {INK};
-    border: 1px solid {RULE};
+    background-color: {BG_ALT};
+    color: {NEON};
+    border: 1px solid {DIM};
     font-family: {FONT_FAMILY};
     font-size: 13px;
     padding: 6px;
+    selection-background-color: {SELECT_BG};
+    selection-color: {CYAN};
 }}
+
+/* Tree (packet detail / protocol hierarchy) */
+QTreeWidget, QTreeView {{
+    background-color: {BG_ALT};
+    color: {NEON};
+    border: 1px solid {DIM};
+    selection-background-color: {SELECT_BG};
+    selection-color: {CYAN};
+    alternate-background-color: {PANEL};
+}}
+QTreeWidget::item {{ padding: 2px 4px; }}
+QTreeWidget::item:hover {{ background-color: #16202c; }}
+QTreeView::branch {{ background: {BG_ALT}; }}
 
 /* Splitter */
 QSplitter::handle {{
-    background-color: {RULE};
+    background-color: {DIM};
 }}
 
-QSplitter::handle:horizontal {{
-    width: 1px;
-}}
-
-QSplitter::handle:vertical {{
-    height: 1px;
-}}
+QSplitter::handle:horizontal {{ width: 2px; }}
+QSplitter::handle:vertical {{ height: 2px; }}
 
 /* StatusBar */
 QStatusBar {{
-    background-color: {PARCHMENT_DARK};
-    color: {INK};
-    border-top: 1px solid {RULE};
+    background-color: {PANEL};
+    color: {NEON};
+    border-top: 1px solid {NEON_DIM};
     font-size: 11px;
+    font-family: {FONT_FAMILY};
 }}
 
 QStatusBar::item {{
@@ -242,88 +335,150 @@ QStatusBar::item {{
 
 /* ToolTip */
 QToolTip {{
-    background-color: #fff6dc;
-    color: {INK};
-    border: 1px solid {RULE};
+    background-color: {PANEL};
+    color: {NEON};
+    border: 1px solid {NEON_DIM};
     padding: 3px 6px;
+    font-family: {FONT_FAMILY};
 }}
 
 /* Line Edit */
 QLineEdit {{
-    background-color: {PARCHMENT};
-    color: {INK};
-    border: 1px solid {RULE};
-    padding: 3px 6px;
+    background-color: {BG_ALT};
+    color: {NEON};
+    border: 1px solid {NEON_DIM};
+    padding: 4px 6px;
+    selection-background-color: {SELECT_BG};
+}}
+QLineEdit:focus {{
+    border: 1px solid {NEON};
 }}
 
 /* Progress Bar */
 QProgressBar {{
-    background-color: {PARCHMENT};
-    border: 1px solid {RULE};
+    background-color: {BG_ALT};
+    border: 1px solid {DIM};
     text-align: center;
-    color: {INK};
+    color: {NEON};
     height: 14px;
 }}
 
 QProgressBar::chunk {{
-    background-color: {ACCENT_CORAL};
+    background-color: {NEON};
 }}
 
 /* Menu */
 QMenuBar {{
-    background-color: {PARCHMENT_DARK};
-    color: {INK};
-    border-bottom: 1px solid {RULE};
+    background-color: {PANEL};
+    color: {NEON};
+    border-bottom: 1px solid {DIM};
 }}
 
 QMenuBar::item:selected {{
     background-color: {SELECT_BG};
-    color: {SELECT_FG};
+    color: {CYAN};
 }}
 
 QMenu {{
-    background-color: {PARCHMENT};
-    color: {INK};
-    border: 1px solid {RULE};
+    background-color: {BG_ALT};
+    color: {NEON};
+    border: 1px solid {NEON_DIM};
 }}
 
 QMenu::item {{
-    padding: 4px 24px;
+    padding: 5px 24px;
 }}
 
 QMenu::item:selected {{
     background-color: {SELECT_BG};
-    color: {SELECT_FG};
+    color: {CYAN};
 }}
 
 QMenu::separator {{
     height: 1px;
-    background-color: {RULE};
+    background-color: {DIM};
     margin: 2px 4px;
 }}
 
 QFrame#statCard {{
-    background-color: {PARCHMENT_DARK};
-    border: 1px solid {RULE};
+    background-color: {PANEL};
+    border: 1px solid {DIM};
+}}
+QFrame#statCard:hover {{
+    border: 1px solid {NEON_DIM};
 }}
 """
 
-DARK_THEME = CLASSIC_THEME
+# ---------------------------------------------------------------------------
+# Colour schemes: (primary, secondary, dim). Primary replaces the neon accent,
+# secondary the cyan accent, dim the darker-green border colour.
+# ---------------------------------------------------------------------------
+SCHEMES = {
+    "neon-green": (NEON, CYAN, NEON_DIM),
+    "amber":      ("#ffb000", "#ffd166", "#a6741f"),
+    "cyan":       ("#00e5ff", "#7affb0", "#128a99"),
+    "red":        ("#ff4d4d", "#ff9f43", "#992e2e"),
+    "purple":     ("#b088ff", "#e056fd", "#6a4fa0"),
+    "mono":       ("#d0d0d0", "#9aa0a6", "#5a5a5a"),
+}
 
+
+def build_qss(scheme: str = "neon-green", font_size: int = 13, extra: str = "") -> str:
+    """Return the full stylesheet recoloured for ``scheme`` at ``font_size``.
+
+    Implemented as targeted hex substitutions on the base (neon-green) sheet so
+    the large QSS body stays in one place.
+    """
+    primary, secondary, dim = SCHEMES.get(scheme, SCHEMES["neon-green"])
+    qss = _BASE_QSS
+    if scheme != "neon-green":
+        qss = qss.replace(NEON_DIM, dim).replace(NEON, primary).replace(CYAN, secondary)
+    if font_size != 13:
+        qss = qss.replace("font-size: 13px;", f"font-size: {font_size}px;")
+    return qss + (extra or "")
+
+
+def scheme_accents(scheme: str = "neon-green"):
+    """(primary, secondary) accent colours for a scheme — used by painters."""
+    primary, secondary, _dim = SCHEMES.get(scheme, SCHEMES["neon-green"])
+    return primary, secondary
+
+
+# Name kept for backwards-compat with main_window import.
+CLASSIC_THEME = _BASE_QSS
+DARK_THEME = _BASE_QSS
+
+# ---------------------------------------------------------------------------
+# Protocol colours — neon palette
+# ---------------------------------------------------------------------------
 PROTOCOL_COLORS = {
-    "ARP":      ACCENT_BLUE,
-    "DHCP":     ACCENT_CORAL,
-    "mDNS":     ACCENT_OLIVE,
-    "SSDP":     "#b6916c",
-    "NetBIOS":  "#9a4a3a",
-    "LLMNR":    "#a4b6a0",
-    "DNS":      "#5e7a8a",
-    "LLDP":     "#7a5a3a",
-    "IPv6-ND":  "#9c6e8a",
+    "ARP":       "#00ff41",
+    "DHCP":      "#00e5ff",
+    "DHCPv6":    "#3ad0ff",
+    "mDNS":      "#ffb000",
+    "SSDP":      "#c8a2ff",
+    "NetBIOS":   "#ff6b9d",
+    "LLMNR":     "#7affb0",
+    "DNS":       "#5ec8ff",
+    "LLDP":      "#ffd166",
+    "IPv6-ND":   "#b088ff",
+    "TLS":       "#ff3b3b",
+    "HTTP":      "#ff9f43",
+    "QUIC":      "#e056fd",
+    "CDP":       "#48dbfb",
+    "STP":       "#8395a7",
+    "WSD":       "#f6e58d",
+    "SNMP":      "#badc58",
+    "NTP":       "#7ed6df",
+    "ICMP":      "#ff7979",
+    "IGMP":      "#eb4d4b",
+    "TCP":       "#22a6b3",
+    "UDP":       "#6ab04c",
 }
 
 DEVICE_TYPE_ICONS = {
     "Router/AP":          "[RTR]",
+    "Router":             "[RTR]",
     "Network Device":     "[NET]",
     "Computer":           "[PC]",
     "Computer (Apple)":   "[MAC]",
@@ -347,3 +502,23 @@ DEVICE_TYPE_ICONS = {
     "Broadcast":          "[BC]",
     "Unknown":            "[?]",
 }
+
+
+def risk_color(score: int) -> str:
+    """Map a 0-100 risk score to a neon->amber->red colour."""
+    if score >= 70:
+        return RED
+    if score >= 40:
+        return AMBER
+    if score >= 15:
+        return "#d4ff00"
+    return NEON
+
+
+def severity_color(severity: str) -> str:
+    return {
+        "critical": RED,
+        "warn": AMBER,
+        "warning": AMBER,
+        "info": CYAN,
+    }.get((severity or "").lower(), NEON)
