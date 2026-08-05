@@ -798,16 +798,456 @@ def _decode_lldp_caps(caps: int) -> list:
     return cap_names
 
 
+def _l2(pkt, result):
+    """Fill in source/dest MAC + IP (v4 or v6) from the packet."""
+    from scapy.layers.l2 import Ether
+    from scapy.layers.inet import IP
+    try:
+        from scapy.layers.inet6 import IPv6
+    except Exception:
+        IPv6 = None
+    if pkt.haslayer(Ether):
+        result.source_mac = pkt[Ether].src
+        result.dest_mac = pkt[Ether].dst
+    if pkt.haslayer(IP):
+        result.source_ip = pkt[IP].src
+        result.dest_ip = pkt[IP].dst
+    elif IPv6 is not None and pkt.haslayer(IPv6):
+        result.source_ip = pkt[IPv6].src
+        result.dest_ip = pkt[IPv6].dst
+
+
+def parse_tls(pkt) -> Optional[ParseResult]:
+    """Passive TLS ClientHello dissection -> SNI (visited host) + JA3."""
+    from scapy.layers.inet import TCP
+    from scapy.packet import Raw
+    from utils.fingerprint import parse_tls_client_hello, classify_ja3
+
+    if not pkt.haslayer(TCP) or not pkt.haslayer(Raw):
+        return None
+    payload = bytes(pkt[Raw].load)
+    if not payload or payload[0] != 0x16:
+        return None
+
+    info = parse_tls_client_hello(payload)
+    if not info.get("is_client_hello"):
+        return None
+
+    result = ParseResult(protocol="TLS")
+    _l2(pkt, result)
+    sni = info.get("sni", "")
+    result.metadata["sni"] = sni
+    result.metadata["tls_version"] = info.get("version", "")
+    result.metadata["ja3"] = info.get("ja3_hash", "")
+    result.metadata["ja3_string"] = info.get("ja3", "")
+    client = classify_ja3(info.get("ja3_hash", ""))
+    if client:
+        result.metadata["ja3_client"] = client
+    if sni:
+        result.services.append({
+            "service_name": sni,
+            "service_type": "TLS/SNI",
+            "protocol": "TLS",
+            "port": pkt[TCP].dport,
+        })
+    result.summary = f"TLS ClientHello -> {sni or '?'} [{info.get('version','')}]"
+    return result
+
+
+def parse_http(pkt) -> Optional[ParseResult]:
+    """Passive HTTP request/response header extraction."""
+    from scapy.layers.inet import TCP
+    from scapy.packet import Raw
+
+    if not pkt.haslayer(TCP) or not pkt.haslayer(Raw):
+        return None
+    tcp = pkt[TCP]
+    if 80 not in (tcp.sport, tcp.dport) and 8080 not in (tcp.sport, tcp.dport):
+        return None
+    try:
+        payload = bytes(pkt[Raw].load).decode("latin-1", errors="ignore")
+    except Exception:
+        return None
+
+    methods = ("GET ", "POST ", "HEAD ", "PUT ", "DELETE ", "OPTIONS ", "PATCH ")
+    is_req = payload.startswith(methods)
+    is_resp = payload.startswith("HTTP/")
+    if not (is_req or is_resp):
+        return None
+
+    lines = payload.split("\r\n")
+    headers = {}
+    for line in lines[1:]:
+        if ":" in line:
+            k, v = line.split(":", 1)
+            headers[k.strip().lower()] = v.strip()
+
+    result = ParseResult(protocol="HTTP")
+    _l2(pkt, result)
+
+    if is_req:
+        parts = lines[0].split(" ")
+        method = parts[0] if parts else ""
+        path = parts[1] if len(parts) > 1 else ""
+        host = headers.get("host", "")
+        ua = headers.get("user-agent", "")
+        result.metadata.update({"http_method": method, "http_host": host,
+                                "http_path": path, "user_agent": ua})
+        result.os_guess = _guess_os_from_user_agent(ua)
+        if "authorization" in headers and headers["authorization"].lower().startswith("basic"):
+            result.metadata["plaintext_auth"] = True
+        if host:
+            result.services.append({
+                "service_name": host, "service_type": "HTTP", "protocol": "HTTP",
+                "port": tcp.dport,
+            })
+        result.summary = f"HTTP {method} {host}{path[:40]}"
+    else:
+        server = headers.get("server", "")
+        status = lines[0]
+        result.metadata.update({"http_server": server, "http_status": status})
+        result.os_guess = _guess_os_from_ssdp_server(server)
+        result.summary = f"HTTP Response {status[:40]} ({server})"
+    return result
+
+
+def _guess_os_from_user_agent(ua: str) -> str:
+    u = ua.lower()
+    if "windows nt" in u:
+        return "Windows"
+    if "android" in u:
+        return "Android"
+    if "iphone" in u or "ipad" in u or "cfnetwork" in u:
+        return "iOS"
+    if "mac os x" in u or "macintosh" in u:
+        return "macOS"
+    if "linux" in u:
+        return "Linux"
+    return ""
+
+
+def parse_quic(pkt) -> Optional[ParseResult]:
+    """Detect QUIC (HTTP/3) long-header Initial packets. Payload is encrypted,
+    so we record version/presence rather than decrypting the SNI."""
+    from scapy.layers.inet import UDP
+    from scapy.packet import Raw
+
+    if not pkt.haslayer(UDP) or not pkt.haslayer(Raw):
+        return None
+    udp = pkt[UDP]
+    if 443 not in (udp.sport, udp.dport):
+        return None
+    data = bytes(pkt[Raw].load)
+    if len(data) < 6:
+        return None
+    # Long header: high bit (0x80) set, fixed bit (0x40) set.
+    if not (data[0] & 0x80 and data[0] & 0x40):
+        return None
+    version = struct.unpack("!I", data[1:5])[0]
+    if version == 0:
+        return None  # version negotiation
+    result = ParseResult(protocol="QUIC")
+    _l2(pkt, result)
+    known = {0x00000001: "QUIC v1", 0x6b3343cf: "QUIC draft-29", 0xff00001d: "QUIC draft-29"}
+    result.metadata["quic_version"] = known.get(version, f"0x{version:08x}")
+    result.summary = f"QUIC Initial [{result.metadata['quic_version']}] -> {result.dest_ip}"
+    return result
+
+
+def parse_dhcpv6(pkt) -> Optional[ParseResult]:
+    """Parse DHCPv6 (UDP 546/547) for DUID / hostname / vendor."""
+    from scapy.layers.inet6 import UDP
+    if not pkt.haslayer(UDP):
+        return None
+    udp = pkt[UDP]
+    if 546 not in (udp.sport, udp.dport) and 547 not in (udp.sport, udp.dport):
+        return None
+    result = ParseResult(protocol="DHCPv6")
+    _l2(pkt, result)
+    try:
+        from scapy.layers.dhcp6 import DHCP6OptClientFQDN, DHCP6OptClientId
+        if pkt.haslayer(DHCP6OptClientFQDN):
+            fqdn = pkt[DHCP6OptClientFQDN].fqdn
+            if isinstance(fqdn, bytes):
+                fqdn = fqdn.decode("utf-8", errors="ignore")
+            result.hostname = str(fqdn).rstrip(".")
+        if pkt.haslayer(DHCP6OptClientId):
+            result.metadata["duid"] = str(pkt[DHCP6OptClientId].duid)
+    except Exception:
+        pass
+    result.summary = f"DHCPv6: {result.hostname or result.source_mac}"
+    return result
+
+
+def parse_cdp(pkt) -> Optional[ParseResult]:
+    """Parse Cisco Discovery Protocol (multicast 01:00:0c:cc:cc:cc)."""
+    from scapy.layers.l2 import Ether
+    if not pkt.haslayer(Ether):
+        return None
+    eth = pkt[Ether]
+    if eth.dst.lower() != "01:00:0c:cc:cc:cc":
+        return None
+
+    result = ParseResult(protocol="CDP", source_mac=eth.src, dest_mac=eth.dst)
+    try:
+        raw = bytes(eth.payload)
+        # Skip 802.3 LLC/SNAP (8 bytes) + CDP header (version, ttl, checksum = 4).
+        i = raw.find(b"\x02\xb4")  # SNAP protocol id for CDP (0x2000) is elsewhere;
+        # Fallback: locate CDP header heuristically.
+        off = 8
+        if len(raw) > off + 4:
+            off += 4  # version(1)+ttl(1)+checksum(2)
+        while off + 4 <= len(raw):
+            tlv_type, tlv_len = struct.unpack("!HH", raw[off:off + 4])
+            if tlv_len < 4 or off + tlv_len > len(raw):
+                break
+            val = raw[off + 4:off + tlv_len]
+            if tlv_type == 0x0001:  # Device ID
+                result.hostname = val.decode("utf-8", errors="ignore")
+            elif tlv_type == 0x0003:  # Port ID
+                result.metadata["port_id"] = val.decode("utf-8", errors="ignore")
+            elif tlv_type == 0x0005:  # Software version
+                result.metadata["software"] = val.decode("utf-8", errors="ignore")[:120]
+                result.os_guess = "Cisco IOS"
+            elif tlv_type == 0x0006:  # Platform
+                result.metadata["platform"] = val.decode("utf-8", errors="ignore")
+            elif tlv_type == 0x000a:  # Native VLAN
+                if len(val) >= 2:
+                    result.metadata["native_vlan"] = struct.unpack("!H", val[:2])[0]
+            off += tlv_len
+    except Exception:
+        pass
+    result.device_type = "Network Device"
+    result.summary = f"CDP: {result.hostname or eth.src} ({result.metadata.get('platform','')})"
+    return result
+
+
+def parse_stp(pkt) -> Optional[ParseResult]:
+    """Parse Spanning Tree Protocol BPDUs (bridge topology)."""
+    try:
+        from scapy.layers.l2 import STP
+    except Exception:
+        return None
+    if not pkt.haslayer(STP):
+        return None
+    from scapy.layers.l2 import Ether
+    stp = pkt[STP]
+    result = ParseResult(protocol="STP")
+    if pkt.haslayer(Ether):
+        result.source_mac = pkt[Ether].src
+        result.dest_mac = pkt[Ether].dst
+    result.metadata["root_id"] = str(getattr(stp, "rootid", ""))
+    result.metadata["bridge_id"] = str(getattr(stp, "bridgeid", ""))
+    result.metadata["root_mac"] = str(getattr(stp, "rootmac", ""))
+    result.device_type = "Network Device"
+    result.summary = f"STP BPDU root={result.metadata.get('root_mac','')} from {result.source_mac}"
+    return result
+
+
+def parse_wsd(pkt) -> Optional[ParseResult]:
+    """WS-Discovery (UDP 3702) — Windows / printers / IP cameras."""
+    from scapy.layers.inet import UDP
+    from scapy.packet import Raw
+    if not pkt.haslayer(UDP):
+        return None
+    udp = pkt[UDP]
+    if 3702 not in (udp.sport, udp.dport):
+        return None
+    if not pkt.haslayer(Raw):
+        return None
+    try:
+        payload = bytes(pkt[Raw].load).decode("utf-8", errors="ignore")
+    except Exception:
+        return None
+    result = ParseResult(protocol="WSD")
+    _l2(pkt, result)
+    action = ""
+    if "Probe" in payload:
+        action = "Probe"
+    elif "Hello" in payload:
+        action = "Hello"
+    elif "Resolve" in payload:
+        action = "Resolve"
+    elif "Bye" in payload:
+        action = "Bye"
+    result.metadata["wsd_action"] = action
+    if "PrinterServiceType" in payload or "print" in payload.lower():
+        result.device_type = "Printer"
+    result.summary = f"WS-Discovery {action} from {result.source_ip}"
+    return result
+
+
+def parse_snmp(pkt) -> Optional[ParseResult]:
+    """SNMP (UDP 161/162) — community string + sysDescr where present."""
+    from scapy.layers.inet import UDP
+    if not pkt.haslayer(UDP):
+        return None
+    udp = pkt[UDP]
+    if 161 not in (udp.sport, udp.dport) and 162 not in (udp.sport, udp.dport):
+        return None
+    result = ParseResult(protocol="SNMP")
+    _l2(pkt, result)
+    try:
+        from scapy.layers.snmp import SNMP
+        if pkt.haslayer(SNMP):
+            snmp = pkt[SNMP]
+            community = snmp.community.val if hasattr(snmp.community, "val") else snmp.community
+            if isinstance(community, bytes):
+                community = community.decode("utf-8", errors="ignore")
+            result.metadata["community"] = str(community)
+            if str(community) in ("public", "private"):
+                result.metadata["weak_community"] = True
+    except Exception:
+        pass
+    result.device_type = result.device_type or "Network Device"
+    result.summary = f"SNMP from {result.source_ip} (community={result.metadata.get('community','?')})"
+    return result
+
+
+def parse_ntp(pkt) -> Optional[ParseResult]:
+    """NTP (UDP 123) — stratum + mode."""
+    from scapy.layers.inet import UDP
+    if not pkt.haslayer(UDP):
+        return None
+    udp = pkt[UDP]
+    if 123 not in (udp.sport, udp.dport):
+        return None
+    result = ParseResult(protocol="NTP")
+    _l2(pkt, result)
+    try:
+        from scapy.layers.ntp import NTP
+        if pkt.haslayer(NTP):
+            ntp = pkt[NTP]
+            result.metadata["stratum"] = int(getattr(ntp, "stratum", 0))
+            result.metadata["ntp_mode"] = int(getattr(ntp, "mode", 0))
+    except Exception:
+        pass
+    result.summary = f"NTP from {result.source_ip} (stratum {result.metadata.get('stratum','?')})"
+    return result
+
+
+def parse_icmp(pkt) -> Optional[ParseResult]:
+    """ICMP (echo / unreachable / TTL exceeded) — liveness + trace hints."""
+    from scapy.layers.inet import ICMP
+    if not pkt.haslayer(ICMP):
+        return None
+    icmp = pkt[ICMP]
+    result = ParseResult(protocol="ICMP")
+    _l2(pkt, result)
+    types = {0: "echo-reply", 8: "echo-request", 3: "dest-unreachable",
+             11: "time-exceeded", 5: "redirect"}
+    t = types.get(int(icmp.type), f"type-{icmp.type}")
+    result.metadata["icmp_type"] = t
+    result.summary = f"ICMP {t}: {result.source_ip} -> {result.dest_ip}"
+    return result
+
+
+def parse_igmp(pkt) -> Optional[ParseResult]:
+    """IGMP multicast group membership (IPTV / streaming devices)."""
+    from scapy.layers.inet import IP
+    if not pkt.haslayer(IP):
+        return None
+    if pkt[IP].proto != 2:  # IGMP
+        return None
+    result = ParseResult(protocol="IGMP")
+    _l2(pkt, result)
+    result.metadata["nd_type"] = "IGMP membership"
+    result.summary = f"IGMP from {result.source_ip}"
+    return result
+
+
+# ------------------------------------------------------------------------- #
+#  Transport-layer flow extraction + per-packet layered dissection           #
+# ------------------------------------------------------------------------- #
+def extract_flow(pkt) -> Optional[dict]:
+    """Return a 5-tuple flow record for TCP/UDP packets (deep-mode analytics).
+
+    This never creates device events — it feeds the conversations/flows table.
+    """
+    from scapy.layers.l2 import Ether
+    from scapy.layers.inet import IP, TCP, UDP
+    try:
+        from scapy.layers.inet6 import IPv6
+    except Exception:
+        IPv6 = None
+
+    src_ip = dst_ip = ""
+    if pkt.haslayer(IP):
+        src_ip, dst_ip = pkt[IP].src, pkt[IP].dst
+    elif IPv6 is not None and pkt.haslayer(IPv6):
+        src_ip, dst_ip = pkt[IPv6].src, pkt[IPv6].dst
+    else:
+        return None
+
+    proto = sport = dport = None
+    flags = ""
+    if pkt.haslayer(TCP):
+        proto = "TCP"
+        sport, dport = int(pkt[TCP].sport), int(pkt[TCP].dport)
+        flags = str(pkt[TCP].flags)
+    elif pkt.haslayer(UDP):
+        proto = "UDP"
+        sport, dport = int(pkt[UDP].sport), int(pkt[UDP].dport)
+    else:
+        return None
+
+    src_mac = pkt[Ether].src if pkt.haslayer(Ether) else ""
+    dst_mac = pkt[Ether].dst if pkt.haslayer(Ether) else ""
+    return {
+        "src_mac": src_mac, "dst_mac": dst_mac,
+        "src_ip": src_ip, "dst_ip": dst_ip,
+        "src_port": sport, "dst_port": dport,
+        "proto": proto, "size": len(pkt), "flags": flags,
+    }
+
+
+def dissect_layers(pkt) -> list:
+    """Return [(layer_title, [(field, value), ...]), ...] for the detail tree."""
+    layers = []
+    try:
+        layer = pkt
+        while layer:
+            name = layer.__class__.__name__
+            fields = []
+            for f in getattr(layer, "fields_desc", []):
+                try:
+                    val = layer.getfieldval(f.name)
+                    if val is None:
+                        continue
+                    if isinstance(val, bytes):
+                        val = val[:48]
+                    fields.append((f.name, str(val)))
+                except Exception:
+                    continue
+            if fields:
+                layers.append((name, fields))
+            layer = layer.payload if layer.payload and layer.payload.name != "NoPayload" else None
+    except Exception:
+        pass
+    return layers
+
+
 # Registry of all parsers in priority order
 ALL_PARSERS = [
     ("ARP", parse_arp),
     ("DHCP", parse_dhcp),
+    ("DHCPv6", parse_dhcpv6),
     ("mDNS", parse_mdns),
     ("SSDP", parse_ssdp),
     ("NetBIOS", parse_nbns),
     ("LLMNR", parse_llmnr),
     ("LLDP", parse_lldp),
+    ("CDP", parse_cdp),
+    ("STP", parse_stp),
+    ("WSD", parse_wsd),
+    ("SNMP", parse_snmp),
+    ("NTP", parse_ntp),
     ("IPv6-ND", parse_ipv6_nd),
+    ("IGMP", parse_igmp),
+    ("ICMP", parse_icmp),
+    ("TLS", parse_tls),
+    ("HTTP", parse_http),
+    ("QUIC", parse_quic),
     ("DNS", parse_dns),
 ]
 

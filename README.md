@@ -1,220 +1,186 @@
-# PassiveEye Passive Network Scanner
+# GhostWire — Passive Network Scanner
 
-A desktop application that discovers and maps every device on your network by
-**listening only**. No active probing, no ARP scans, no port scans just
-silent observation of the broadcast, multicast, and overheard unicast traffic
-that networked devices emit constantly, even when they appear idle.
+> Formerly *PassiveEye*. A desktop tool that maps every device on your network by
+> **listening only** — no active probing, no ARP scans, no port scans. It silently
+> dissects the broadcast, multicast, and overheard traffic that devices emit
+> constantly, then turns it into device intelligence, security alerts, and live
+> statistics behind a hacker/terminal-style GUI (matrix rain, neon-green console
+> aesthetic, animated widgets).
 
-Visually it borrows the look of Florence Nightingale's 1858 *Diagram of the
-Causes of Mortality in the Army in the East* parchment paper, sepia ink,
-Times New Roman, and a rose / coxcomb diagram for the protocol breakdown.
-
----
-
-## 1. Task Requirements
-
-This project was written for the CyberSec Club Week 2 assignment, which asked
-for a passive network scanner judged on three axes:
-
-| Axis | What was asked | How PassiveEye answers it |
-|---|---|---|
-| **Style** | "How good looking is your program. A cool GUI? A fancy TUI? Maybe it draws a graph?" | PyQt5 desktop GUI with a Nightingale-inspired parchment theme, an interactive force-directed network graph, and a coxcomb / rose diagram of the protocol distribution. |
-| **Substance** | "How well it works, how many protocols does it understand, and other features. Maybe it can be distributed, having multiple clients working together?" | 9 discovery protocols parsed (see list below), OS fingerprinting, MAC-vendor lookup with a 600+ entry OUI table, device-type hinting, service discovery, JSON export, and SQLite persistence across sessions. |
-| **Statistics** | "How well does it handle large amounts of data, store it, and handle it. What can you learn with the data, that you will intercept?" | SQLite (WAL mode, thread-safe) backs every event, service, DNS query, and device. Live stat cards, protocol distribution bar, rose diagram, device-type and vendor breakdown, top-N DNS queries, per-device packet counts. |
+The **capture engine never transmits a packet**. There is no `send`, `sendp`, or
+`sr*` call in the sniffing path — everything is inferred from traffic already on
+the wire. (The optional *System Network* admin module described below is separate
+and explicitly not passive.)
 
 ---
 
-## 2. Protocols Captured
+## Highlights
 
-PassiveEye uses a single Scapy BPF filter to grab only discovery traffic, then
-runs each packet through every parser. The nine protocols understood:
+- **200+ configurable settings** — a searchable, categorized **Preferences**
+  dialog (appearance, matrix background, per-protocol toggles & colors, capture,
+  DNS, security detectors & thresholds, risk weights, alerts, network-map physics,
+  live packets, device/L2, storage, hotkeys, localization, privacy). Everything
+  is JSON-persisted and most settings apply **live**.
+- **Localization (EN + TR)** — full UI translation with an instant language
+  switch; locale-aware byte units (IEC/SI) and date/time formats.
+- **Pixel-font accents** — a bundled OFL pixel font (Silkscreen) styles the
+  title, group headers, stat labels and menu; body text stays monospace for
+  readability.
+- **Smooth network map** — the force-directed graph freezes once it settles and
+  pauses when its tab is hidden, so it no longer spins the CPU or stutters.
 
-| # | Protocol | Layer / Port | What it reveals |
-|---|---|---|---|
-| 1 | **ARP**     | L2 (0x0806)      | MAC ↔ IPv4 mappings; who is on the segment. |
-| 2 | **DHCP**    | UDP 67 / 68      | Hostname, vendor class ID, requested/assigned IP, parameter-request-list OS fingerprint (Windows / Linux / Android / macOS / iOS). |
-| 3 | **mDNS**    | UDP 5353         | `.local` hostnames, Bonjour/Avahi service discovery (AirPlay, printers, Chromecast, SMB, HTTP…), TXT-record metadata (model, OS version). |
-| 4 | **SSDP**    | UDP 1900         | UPnP devices, `SERVER:` header OS guessing, `LOCATION` URLs, search targets. |
-| 5 | **NetBIOS** | UDP 137          | Windows machine names via half-ASCII decoding (covers both Scapy's parser and a raw-bytes fallback). |
-| 6 | **LLMNR**   | UDP 5355         | Windows link-local name resolution queries strong Windows indicator. |
-| 7 | **DNS**     | UDP 53           | Query/response logging, top-queried domains, per-device DNS analytics. |
-| 8 | **LLDP**    | L2 (0x88CC)      | Network-device TLVs chassis ID, port ID, system name, system description, capabilities, management address, IEEE 802.1 VLAN ID. |
-| 9 | **IPv6-ND** | ICMPv6           | Router advertisements (prefix, RDNSS, router lifetime), router solicitations, neighbor solicitations / advertisements. |
-
-The scanner never sends a packet. Everything above is gathered from traffic
-that already exists on the wire.
-
-### What you can learn
-
-From a few minutes of passive listening on a typical home/office network:
-
-- Every device's MAC address, IP, and vendor.
-- Most devices' hostnames (DHCP / mDNS / NetBIOS).
-- Many devices' operating systems (DHCP fingerprint, SSDP `SERVER:`, mDNS TXT
-  `osxvers`, LLDP system description).
-- Service inventory per device what AirPlay/Bonjour services they advertise,
-  what UPnP they expose, what printers exist.
-- Which devices are routers / access points (LLDP capabilities, IPv6 RAs,
-  vendor heuristics).
-- The aggregate DNS curiosity of the network top queried domains.
-
----
-
-## 3. Skills / Things Demonstrated
-
-- **Raw packet capture** via Scapy with a single combined BPF filter.
-- **Threaded packet processing** capture runs on a background thread, the
-  GUI uses Qt signals to receive updates without blocking.
-- **Protocol parsing** in pure Python, including manual binary parsing for
-  LLDP TLVs and NetBIOS half ASCII names.
-- **OS fingerprinting** by three independent heuristics (DHCP vendor class,
-  DHCP parameter request list ordering, SSDP server string).
-- **Persistent storage** SQLite in WAL mode with thread-local connections,
-  indexed for time/protocol/DNS lookups.
-- **GUI engineering** Qt stylesheet theme, custom-painted widgets
-  (`ProtocolBarWidget`, `CoxcombWidget`, `NetworkGraphWidget`), a
-  force-directed graph layout, search/filter, JSON export.
-- **Data visualization** a rose / coxcomb diagram with area-proportional
-  wedges (`radius = √(count / max)`), exactly the construction Nightingale
-  used in 1858.
+- **22 protocol dissectors** — ARP, DHCP, DHCPv6, mDNS, SSDP, NetBIOS, LLMNR,
+  DNS, LLDP, CDP, STP, WS-Discovery, SNMP, NTP, IPv6-ND, IGMP, ICMP, **TLS
+  (SNI + JA3)**, **HTTP**, **QUIC**, plus TCP/UDP flow tracking.
+- **Passive fingerprinting** — JA3 TLS client hashes, p0f-style OS guessing from
+  IP TTL + TCP window, DHCP parameter-list OS fingerprint, MAC-randomization
+  (locally-administered bit) detection, MAC-vendor OUI lookup.
+- **Security analytics (all passive)** — ARP-spoofing / duplicate-IP detection,
+  rogue-DHCP and rogue-router detection, passive port-scan detection,
+  DNS-tunneling heuristic, plaintext-auth and weak-SNMP warnings, per-device
+  **risk scoring (0–100)**, and a colour-coded **Alerts** center with toasts.
+- **Wireshark-style views** — Live Packets pane with a layered dissection tree +
+  hex/ASCII dump, Conversations/flows table, Top Talkers, IO Graph (pps/Bps),
+  Protocol Hierarchy tree, protocol-chatter rose diagram.
+- **Device management** — aliases, notes, tags, a watchlist, right-click actions,
+  and global search/filter.
+- **Persistence & export** — SQLite (WAL, thread-safe) backs devices, events,
+  DNS, flows, alerts and fingerprints; export to **JSON / CSV / HTML report** and
+  save the capture buffer to **PCAP**.
+- **Offline analysis** — open a saved `.pcap`/`.pcapng` with **no root required**.
+- **Hacker GUI** — boot splash with a typing sequence, ambient matrix-rain
+  background, neon monospace theme, glow button hovers, count-up stat cards with
+  sparklines, and risk-coloured network graph nodes.
 
 ---
 
-## 4. Setup
-
-### Requirements
-
-- Python 3.8 or newer (3.10 or 3.13 work cleanly; 3.14 also works if your distro
-  ships Scapy and PyQt5 wheels for it).
-- Linux, macOS, or Windows.
-- On Linux/macOS: nothing extra — raw sockets are built in, just run as root.
-- On Windows: install **Npcap** from https://npcap.com/ (tick the WinPcap API
-  compatibility option during installation). Then run your shell as
-  Administrator.
-
-### Install
-
-Clone the repository and install the two dependencies:
+## Install
 
 ```bash
 git clone https://github.com/GaziAtaol/Passive-Eye.git
 cd Passive-Eye
-pip install -r requirements.txt
+pip install -r requirements.txt      # scapy + PyQt5
 ```
 
-Alternatively, download the ZIP from GitHub (click **Code → Download ZIP**),
-extract it, `cd` into the folder, and run the same `pip install` line above.
-
-`requirements.txt` pulls in Scapy and PyQt5.
+- Python 3.8+ (tested on 3.11). Linux, macOS, or Windows.
+- Live capture needs root/Administrator raw-socket access.
+- On Windows install **Npcap** (https://npcap.com/, tick WinPcap API compat).
+- *(optional)* Point `GHOSTWIRE_OUI` at a Wireshark `manuf` / IEEE OUI file, or
+  drop it at `utils/oui.txt`, to extend the built-in vendor table.
 
 ---
 
-## 5. Running the project
-
-### Linux / macOS
+## Running
 
 ```bash
+# live capture (needs root)
 sudo python3 main.py
+sudo python3 main.py -i "Wi-Fi"        # specific interface
+sudo python3 main.py --deep            # Deep Capture Mode (dissect all TCP/UDP)
+
+# offline analysis of a capture file — NO root required
+python3 main.py --pcap capture.pcap
+
+# other flags
+python3 main.py --db custom.db         # alternate SQLite file
+python3 main.py --no-splash            # skip the boot animation
+python3 main.py -h                     # help
 ```
 
-If you used a virtualenv:
+### Capture modes
 
-```bash
-sudo ./.venv/bin/python main.py
-```
+- **Discovery mode (default)** — a tight BPF filter grabs only discovery/control
+  traffic. Low noise, low CPU.
+- **Deep Capture Mode** (`--deep` or the *Deep* toggle) — captures all frames so
+  the TLS/HTTP/QUIC dissectors and the conversations/flows analytics have data to
+  work with. Heavier, opt-in. You can also type a custom BPF filter in the top bar.
 
-### Windows
+### Keyboard shortcuts
 
-Right-click PowerShell or `cmd` → **Run as administrator**, then:
-
-```powershell
-cd C:\path\to\Passive-Eye
-python main.py
-```
-
-### Optional flags
-
-```bash
-python main.py -i "Wi-Fi"          # capture on a specific interface
-python main.py --db custom.db      # use a non-default SQLite file
-python main.py -h                  # show help
-```
+`Ctrl+K` focus search · `Space` pause/resume · `Ctrl+O` open PCAP · `Ctrl+E` export HTML.
 
 ---
 
-## 6. Using the GUI
+## GUI tour
 
-1. Pick an interface from the **Interface** dropdown (or leave "All Interfaces").
-2. Click **Start Capture**.
-3. Wait. Discovery traffic is bursty give it 30 seconds to a few minutes.
-   ARP/mDNS/SSDP arrive fastest; DHCP only on lease renewal.
-4. Tabs:
-   - **Devices** live table of every device heard. Click a row for a full
-     parchment detail card showing MAC, IPs, vendor, OS guess, services,
-     metadata.
-   - **Network Map** interactive force-directed graph. Drag nodes, scroll
-     to zoom, hover for a margin-note tooltip. Routers are coral, the rest
-     parchment.
-   - **Event Log** chronological feed of every parsed event.
-   - **DNS Analytics** top queried domains across the network.
-   - **Statistics** the rose / coxcomb diagram + protocol, device-type,
-     and vendor distribution tables.
-5. **Stop** halts capture cleanly. **Export…** writes the whole database to
-   a JSON file.
-
-Data persists in `passive_scanner.db` across runs, so each session enriches
-the same picture.
+| Tab | What it shows |
+|---|---|
+| **Devices** | Live device table with type, vendor, OS, **risk score**, protocols; click for a full dossier (fingerprints, services, risk factors). Right-click to alias / note / watchlist. |
+| **Network Map** | Force-directed graph; node ring colour = risk, edge width = traffic. Drag, zoom, hover. |
+| **Live Packets** | Scrolling packet feed + Wireshark-style layer dissection tree + hex/ASCII pane. |
+| **Alerts** | Colour-coded security alerts (info/warn/critical). |
+| **Conversations** | 5-tuple flow table (endpoints, ports, packets, bytes). |
+| **Event Log** | Chronological parsed-event feed. |
+| **DNS** | Top queried domains. |
+| **IO Graph** | Live pps/Bps chart + Top Talkers. |
+| **Protocol Tree** | Protocol-hierarchy breakdown by layer. |
+| **Statistics** | Protocol rose diagram + protocol / device-type / vendor distributions. |
 
 ---
 
-## 7. Project layout
+## Project layout
 
 ```
 Passive-Eye/
-├── main.py                  # Entry point + privilege check
-├── requirements.txt
-├── README.md
+├── main.py                  # Entry point, splash, --pcap/--deep flags
 ├── core/
-│   ├── database.py          # SQLite (WAL, thread-local connections)
-│   ├── parsers.py           # 9 protocol parsers → ParseResult
-│   ├── device_manager.py    # Central device state + enrichment
-│   └── sniffer.py           # Scapy capture engine (background thread)
+│   ├── database.py          # SQLite: devices, events, DNS, alerts, flows, fingerprints, exports
+│   ├── parsers.py           # 24 protocol dissectors + flow extraction + layer dissection
+│   ├── device_manager.py    # Device state, risk scoring, tags/watchlist, fingerprints
+│   ├── sniffer.py           # Scapy engine: deep mode, PCAP read/write, pause, counters, ring buffer
+│   └── analytics.py         # Passive anomaly/security engine (ARP spoof, port scan, DNS tunnel, ...)
+├── core/
+│   ├── settings.py          # JSON-persisted, live-applying settings (200+ keys)
+│   ├── i18n.py              # EN/TR translations + tr()
+│   └── netconfig.py         # Optional System Network module (macOS, opt-in, NOT passive)
 ├── gui/
-│   ├── theme.py             # Nightingale parchment QSS + palette
-│   ├── network_graph.py     # Force-directed graph widget
-│   └── main_window.py       # Main window, stat cards, coxcomb, tabs
+│   ├── theme.py             # Neon hacker QSS + colour schemes + pixel accents
+│   ├── matrix_bg.py         # Matrix digital-rain background (settings-driven)
+│   ├── splash.py            # Boot splash with typing animation
+│   ├── widgets.py           # GlowButton, AnimatedStatCard, Sparkline, PacketDetailTree, HexView, Toast
+│   ├── network_graph.py     # Force-directed, risk-coloured graph (settle + visibility gating)
+│   ├── settings_dialog.py   # Schema-driven Preferences dialog
+│   ├── netconfig_panel.py   # Guarded System Network UI
+│   └── main_window.py       # Main window, tabs, stat cards, menu, settings wiring
+├── assets/fonts/            # Bundled OFL pixel fonts (Silkscreen, VT323)
 └── utils/
-    └── oui_lookup.py        # 600+ OUI prefixes (Apple, Samsung, Cisco…)
+    ├── oui_lookup.py        # OUI vendor table (+ optional external file loading)
+    └── fingerprint.py       # JA3, p0f-style OS, MAC randomization, entropy
 ```
 
 ---
 
-## 8. Safety
+## Preferences
 
-The scanner is **strictly passive** — `core/sniffer.py` only registers a
-`prn=` callback on Scapy's `sniff()`. There is no `send`, `sendp`, or `sr*`
-call anywhere in the codebase. Everything is gathered from traffic that is
-already on the wire.
+Open **Settings › Preferences…** (or the *Settings* menu) for 200+ options across
+18 categories, with a search box and live apply. Highlights: colour schemes,
+matrix-rain tuning, per-protocol enable/colour, capture buffer & filters, DNS &
+tunneling thresholds, per-detector security toggles, risk-weight sliders,
+network-map physics, MAC format, byte units, hotkeys, language, and privacy
+(MAC anonymisation, hostname redaction). Settings live in `ghostwire_settings.json`.
 
-Two ordinary caveats:
+## System Network module (optional, **not passive**)
 
-1. Raw socket capture requires root / Administrator on every OS.
-2. Only run it on networks you own or have permission to monitor.
-
----
-
-## 9. Troubleshooting
-
-| Symptom | Fix |
-|---|---|
-| `Permission denied` / `Operation not permitted` | Use `sudo` (Linux/macOS) or run the shell as Administrator (Windows). |
-| Windows: `No libpcap provider available` | Install Npcap, reboot. |
-| `ModuleNotFoundError: scapy` / `PyQt5` | `pip install -r requirements.txt` (and make sure your venv is activated). |
-| GUI starts but device table stays empty | Wrong interface, or a wired link with little broadcast traffic try Wi-Fi or "All Interfaces". |
-| Capture error popup right after **Start** | The selected interface is wrong; pick "All Interfaces" instead. |
+Under **Preferences › System Network ⚠** you can change the *operating system's*
+DNS servers, web proxy, interface MTU, and service state (macOS, via
+`networksetup`). This is a deliberate, separate admin tool — it is **disabled by
+default**, requires **root/Administrator**, **confirms** every change, **backs up**
+the previous value to `ghostwire_netbackup.json`, offers one-click **Revert**, and
+logs each action to the Alerts feed. It is **not** part of the passive guarantee,
+which applies to the capture engine only.
 
 ---
+
+## Safety & scope
+
+- **Passive capture** — the sniffer registers only a `prn=` read callback on
+  Scapy's `sniff()`; nothing is transmitted on the wire.
+- The optional System Network module is the sole component that mutates state, and
+  it does so on the local OS (not the network) only when you explicitly enable and
+  apply it as root.
+- Raw-socket capture requires root/Administrator (offline `--pcap` does not).
+- Only run it on networks you own or are authorised to monitor.
 
 ## License
 
-Educational use CyberSec Club 2026.
+Educational use — CyberSec Club 2026.

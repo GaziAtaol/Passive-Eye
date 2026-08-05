@@ -56,3 +56,9 @@ htmlcov/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# ── GhostWire runtime artefacts ──────────────────────────────────────
+ghostwire_settings.json
+ghostwire_netbackup.json
+ghostwire_export.*
+ghostwire_scan_export.*
